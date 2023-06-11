@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   useDisclosure,
-  Stack,
   Skeleton,
 } from "@chakra-ui/react";
 import Link from "next/link";
@@ -25,20 +24,15 @@ export default function Home() {
   if (error) return <div>an error occured</div>;
 
   return (
-    <Container maxW="container.xl" paddingTop={16}>
+    <Container maxW="container.xl" pt={16}>
       <Box pb={8}>
         <Button
           leftIcon={<RiAddCircleLine size={22} />}
           onClick={onOpen}
           isLoading={isLoading}
           disabled={isLoading}
-          color="white"
-          background={"#0052cc"}
-          _hover={{
-            background: "#0052ccee",
-          }}
         >
-          Insert New Feed
+          Add Feed
         </Button>
       </Box>
       {!isLoading && data?.length === 0 ? (

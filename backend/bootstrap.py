@@ -9,7 +9,7 @@ import process
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 r = redis.Redis(host='localhost',
                 port=6379,
                 decode_responses=True)
@@ -30,6 +30,7 @@ def handle_start_process(data):
             logging.info(f"({id_=}):({pid=}) is cached")
             join_room(id_)
             logging.info(f"({id_=}) join room is succeed")
+            socketio.emit("healthcheck", { "id": id_ })
         except Exception as e:
             logging.error(f"process start failed: {e}")
     else:
@@ -53,6 +54,7 @@ def handle_suspend_process(data):
         try:
             process.suspend(int(pid))
             logging.info(f"({id_=}):({pid=}) is suspended")
+            socketio.emit("healthcheck", { "id": id_ })
         except Exception as e:
             logging.error(f"process suspend failed: {e}")
     else:
@@ -67,6 +69,7 @@ def handle_resume_process(data):
         try:
             process.resume(int(pid))
             logging.info(f"({id_=}):({pid=}) is resume")
+            socketio.emit("healthcheck", { "id": id_ })
         except Exception as e:
             logging.error(f"process resume failed: {e}")
     else:
@@ -81,6 +84,7 @@ def handle_kill_process(data):
         try:
             process.kill(int(pid))
             logging.info(f"({id_=}):({pid=}) is killed succeed")
+            socketio.emit("healthcheck", { "id": id_ })
         except Exception as e:
             logging.error(f"process kill failed: {e}")
         finally:
@@ -91,9 +95,20 @@ def handle_kill_process(data):
     else:
         logging.info(f"({id_=}) is not running and cached")
 
-@socketio.on('healthcheck_process')
-def handle_healthcheck_process():
-    pass
+@socketio.on('healthcheck')
+def handle_healthcheck(data):
+    id_ = data.get("id")
+    pid = r.get(id_)
+
+    status = process.status(pid)
+    payload = {
+        "status": status
+    }
+    socketio.emit("healthcheck", payload)
+
+@socketio.on('connect')
+def connect():
+    socketio.emit("message", {"status": "running"})
 
 @app.route('/')
 def index():

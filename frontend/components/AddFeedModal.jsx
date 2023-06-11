@@ -19,6 +19,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 
 import useSWR from "swr";
+import { socket } from "@/lib/socket";
 
 export default function AddFeedModal(props) {
   const router = useRouter();
@@ -40,12 +41,16 @@ export default function AddFeedModal(props) {
       tag,
     })
       .then((res) => {
-        router.push(`/feed/${res.name}`);
+        socket.emit("start_process", { id: res.id });
+
         toast({
           title: "Feed Created Successfully",
           status: "success",
-          duration: 2000,
+          duration: 1500,
           isClosable: true,
+          onCloseComplete: () => {
+            router.push(`/feed/${res.name}`);
+          },
         });
       })
       .catch((err) => {

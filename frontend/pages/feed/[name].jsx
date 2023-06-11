@@ -1,38 +1,91 @@
 import { fetcher, remover } from "@/lib/client";
 import {
+  Badge,
+  Box,
   Button,
+  Container,
+  Divider,
   FormControl,
   FormLabel,
-  Image,
+  HStack,
+  Heading,
+  IconButton,
+  Skeleton,
+  Spinner,
+  Stack,
+  StackDivider,
+  Stat,
+  StatLabel,
+  StatNumber,
   Switch,
+  Table,
+  TableCaption,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  VStack,
 } from "@chakra-ui/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import toast from "@/lib/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { socket } from "@/lib/socket";
+import { FiArrowLeft } from "react-icons/fi";
+import { RiIndeterminateCircleLine } from "react-icons/ri";
+import { AiOutlineStop } from "react-icons/ai";
+import { BiRun } from "react-icons/bi";
+import { VscDebugRestart } from "react-icons/vsc";
+import {
+  handleHealthcheck,
+  handleKillProcess,
+  handleResumeProcess,
+  handleStartProcess,
+  handleSuspendProcess,
+} from "@/lib/events/process";
+
+const STATUSES = {
+  sleeping: {
+    label: "running",
+    accent: "green",
+  },
+  terminated: {
+    label: "terminated",
+    accent: "red",
+  },
+  stopped: {
+    label: "suspended",
+    accent: "orange",
+  },
+};
 
 export default function FeedPage({ data }) {
   const router = useRouter();
+  const [status, setStatus] = useState(null);
 
-  const [active, setActive] = useState(0);
+  const { id, name, src } = data;
 
   const handleDelete = async () => {
     await remover("/api/feeds", {
       params: {
-        id: data.id,
+        id,
       },
     })
       .then((res) => {
+        socket.emit("kill_process", { id });
         toast({
           title: "Feed is deleted successfully",
           status: "success",
-          duration: 3000,
+          duration: 1500,
           isClosable: true,
+          onCloseComplete: () => {
+            router.push("/");
+          },
         });
-        router.push("/");
       })
       .catch((err) => {
-        console.log(err);
         toast({
           title: "An Error Occured",
           description: err.response.data.message,
@@ -43,33 +96,194 @@ export default function FeedPage({ data }) {
       });
   };
 
-  const feedURL = `${process.env.NEXT_PUBLIC_FLASK_URL}/feed/${active}/${data.src}`;
+  const handleEvent = (f) => {
+    setStatus(null);
+    f(id);
+  };
+
+  useEffect(() => {
+    function listenHealthCheck(data) {
+      setStatus(STATUSES[data.status]);
+    }
+
+    const h = setInterval(() => {
+      handleHealthcheck(id);
+    }, 3000);
+
+    socket.on("healthcheck", listenHealthCheck);
+
+    return () => {
+      socket.off("healthcheck", listenHealthCheck);
+      clearInterval(h);
+    };
+  }, []);
 
   return (
-    <div>
-      <Link href="/">
-        <Button>{"<- Feeds"}</Button>
-      </Link>
-      {data.name}
-      <section>
-        <FormControl display="flex" alignItems="center">
-          <FormLabel htmlFor="inference" mb="0">
-            Inference
-          </FormLabel>
-          <Switch
-            id="inference"
-            onChange={(e) => {
-              setActive(e.target.checked ? 1 : 0);
-            }}
-          />
-        </FormControl>
-        <Image src={feedURL} alt={feedURL} width={800} height={600} />
-      </section>
+    <Container pt={16} maxW="container.xl">
+      <Stack>
+        <HStack justifyContent="flex-start" alignItems="center">
+          <Link href="/">
+            <IconButton icon={<FiArrowLeft />} />
+          </Link>
+          <Heading color="#333">{data.name}</Heading>
 
-      <Button color="tomato" background="white" onClick={handleDelete}>
-        Delete
-      </Button>
-    </div>
+          {/* <Button
+            leftIcon={<FiTrash size={22} />}
+            color="white"
+            onClick={handleDelete}
+          >
+            Delete Feed
+          </Button> */}
+        </HStack>
+        <Divider />
+        <HStack alignItems="flex-start" gap={4}>
+          <Box position={"relative"}>
+            <Skeleton width={800} height={600} />
+          </Box>
+          <Box width={"100%"}>
+            <VStack>
+              <Box width={"100%"}>
+                <Heading size="md" pb={4}>
+                  Feed Detail
+                </Heading>
+                <Stack divider={<StackDivider />}>
+                  <FormControl>
+                    <FormLabel>Id:</FormLabel>
+                    <Text color="gray">{id}</Text>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Name:</FormLabel>
+                    <Text color="gray">{name}</Text>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Source:</FormLabel>
+                    <Text color="gray">{src}</Text>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Status:</FormLabel>
+                    {!status ? (
+                      <Spinner />
+                    ) : (
+                      <Badge color={status.accent} colorScheme={status.accent}>
+                        {status.label}
+                      </Badge>
+                    )}
+                  </FormControl>
+                </Stack>
+              </Box>
+              <Box width="100%">
+                <Heading size="md" pb={4} pt={4}>
+                  Actions
+                </Heading>
+                <Stack width="fit-content">
+                  <Button
+                    leftIcon={<BiRun size={22} />}
+                    color="green"
+                    variant={"outline"}
+                    isDisabled={
+                      !status ||
+                      [
+                        STATUSES.sleeping.label,
+                        STATUSES.stopped.label,
+                      ].includes(status.label)
+                    }
+                    onClick={() => handleEvent(handleStartProcess)}
+                  >
+                    Run
+                  </Button>
+                  <Button
+                    leftIcon={<VscDebugRestart size={22} />}
+                    color="green"
+                    variant={"outline"}
+                    isDisabled={
+                      !status ||
+                      [
+                        STATUSES.sleeping.label,
+                        STATUSES.terminated.label,
+                      ].includes(status.label)
+                    }
+                    onClick={() => handleEvent(handleResumeProcess)}
+                  >
+                    Resume
+                  </Button>
+                  <Button
+                    leftIcon={<AiOutlineStop size={22} />}
+                    color="orange"
+                    variant={"outline"}
+                    isDisabled={
+                      !status ||
+                      [
+                        STATUSES.terminated.label,
+                        STATUSES.stopped.label,
+                      ].includes(status.label)
+                    }
+                    onClick={() => handleEvent(handleSuspendProcess)}
+                  >
+                    Suspend
+                  </Button>
+                  <Button
+                    leftIcon={<RiIndeterminateCircleLine size={22} />}
+                    color="red"
+                    variant={"outline"}
+                    isDisabled={
+                      !status ||
+                      [STATUSES.terminated.label].includes(status.label)
+                    }
+                    onClick={() => handleEvent(handleKillProcess)}
+                  >
+                    Terminate
+                  </Button>
+                  <FormControl>
+                    <FormLabel>Inference</FormLabel>
+                    <Switch />
+                  </FormControl>
+                </Stack>
+              </Box>
+            </VStack>
+          </Box>
+        </HStack>
+      </Stack>
+      {/* <Box pt={8}>
+        <Heading>Logs</Heading>
+        <Table>
+          <TableCaption>Imperial to metric conversion factors</TableCaption>
+          <Thead>
+            <Tr>
+              <Th>To convert</Th>
+              <Th>into</Th>
+              <Th isNumeric>multiply by</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            <Tr>
+              <Td>inches</Td>
+              <Td>millimetres (mm)</Td>
+              <Td isNumeric>25.4</Td>
+            </Tr>
+            <Tr>
+              <Td>feet</Td>
+              <Td>centimetres (cm)</Td>
+              <Td isNumeric>30.48</Td>
+            </Tr>
+            <Tr>
+              <Td>feet</Td>
+              <Td>centimetres (cm)</Td>
+              <Td isNumeric>30.48</Td>
+            </Tr>
+            <Tr>
+              <Td>feet</Td>
+              <Td>centimetres (cm)</Td>
+              <Td isNumeric>30.48</Td>
+            </Tr>
+            <Tr>
+              <Td>feet</Td>
+              <Td>centimetres (cm)</Td>
+              <Td isNumeric>30.48</Td>
+            </Tr>
+          </Tbody>
+        </Table>
+      </Box> */}
+    </Container>
   );
 }
 

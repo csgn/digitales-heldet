@@ -35,3 +35,11 @@ def check_process(pid):
     except TypeError:
         return False
 
+def status(pid):
+    s = check_process(pid)
+
+    if not s:
+        return "terminated"
+
+    process = psutil.Process(int(pid))
+    return process.status()

@@ -1,3 +1,4 @@
+import { socket } from "@/lib/socket";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
