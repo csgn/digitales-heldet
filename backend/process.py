@@ -4,8 +4,15 @@ import psutil
 import logging
 
 
-def start():
-    return subprocess.Popen(["python", "temp.py"]).pid
+from random_open_port import random_port
+
+def start(src):
+    return subprocess.Popen(["python",
+                             "inference/start.py",
+                             '--port',
+                             str(random_port()),
+                             '--source',
+                             src]).pid
 
 def kill(pid):
     process = psutil.Process(pid)

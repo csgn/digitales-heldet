@@ -1,6 +1,7 @@
 import AddFeedModal from "@/components/AddFeedModal";
 import FeedCard from "@/components/FeedCard";
 import { fetcher } from "@/lib/client";
+import { handleStartProcess } from "@/lib/events/process";
 import {
   Container,
   SimpleGrid,
@@ -52,6 +53,7 @@ export default function Home() {
           ) : (
             data?.map((feed) => {
               const { id, ...rest } = feed;
+
               return (
                 <Box key={id}>
                   <Link href={`/feed/${rest.name}`}>

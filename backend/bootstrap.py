@@ -9,7 +9,10 @@ import process
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app,
+                    async_mode='threading',
+                    cors_allowed_origins="*")
+
 r = redis.Redis(host='localhost',
                 port=6379,
                 decode_responses=True)
@@ -20,11 +23,12 @@ logging.basicConfig(level=logging.INFO)
 @socketio.on('start_process')
 def handle_start_process(data):
     id_ = data.get("id")
+    src = data.get("src")
     pid = r.get(id_)
 
     if not pid:
         try:
-            pid = process.start()
+            pid = process.start(src)
             logging.info(f"({id_=}):({pid=}) is running now.")
             r.set(id_, pid)
             logging.info(f"({id_=}):({pid=}) is cached")
@@ -36,7 +40,7 @@ def handle_start_process(data):
     else:
         if not process.check_process(pid):
             old_pid = pid
-            pid = process.start()
+            pid = process.start(src)
             logging.info(f"({id_=}):({pid=}) is started  now.")
             r.set(id_, pid)
             logging.info(f"({id_=}):({old_pid=}->{pid=}) is update cache")
@@ -105,6 +109,10 @@ def handle_healthcheck(data):
         "status": status
     }
     socketio.emit("healthcheck", payload)
+
+@socketio.on('feed')
+def handle_feed(data):
+    socketio.emit("video_feed", data)
 
 @socketio.on('connect')
 def connect():

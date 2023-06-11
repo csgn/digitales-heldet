@@ -67,48 +67,16 @@ export default function FeedPage({ data }) {
 
   const { id, name, src } = data;
 
-  const handleDelete = async () => {
-    await remover("/api/feeds", {
-      params: {
-        id,
-      },
-    })
-      .then((res) => {
-        socket.emit("kill_process", { id });
-        toast({
-          title: "Feed is deleted successfully",
-          status: "success",
-          duration: 1500,
-          isClosable: true,
-          onCloseComplete: () => {
-            router.push("/");
-          },
-        });
-      })
-      .catch((err) => {
-        toast({
-          title: "An Error Occured",
-          description: err.response.data.message,
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-      });
-  };
-
-  const handleEvent = (f) => {
-    setStatus(null);
-    f(id);
-  };
-
   useEffect(() => {
     function listenHealthCheck(data) {
       setStatus(STATUSES[data.status]);
     }
 
+    handleHealthcheck(id);
+
     const h = setInterval(() => {
       handleHealthcheck(id);
-    }, 3000);
+    }, 20000);
 
     socket.on("healthcheck", listenHealthCheck);
 
@@ -125,7 +93,7 @@ export default function FeedPage({ data }) {
           <Link href="/">
             <IconButton icon={<FiArrowLeft />} />
           </Link>
-          <Heading color="#333">{data.name}</Heading>
+          <Heading color="#333">{name}</Heading>
 
           {/* <Button
             leftIcon={<FiTrash size={22} />}
@@ -187,7 +155,10 @@ export default function FeedPage({ data }) {
                         STATUSES.stopped.label,
                       ].includes(status.label)
                     }
-                    onClick={() => handleEvent(handleStartProcess)}
+                    onClick={() => {
+                      setStatus(null);
+                      handleStartProcess(id, src);
+                    }}
                   >
                     Run
                   </Button>
@@ -202,7 +173,10 @@ export default function FeedPage({ data }) {
                         STATUSES.terminated.label,
                       ].includes(status.label)
                     }
-                    onClick={() => handleEvent(handleResumeProcess)}
+                    onClick={() => {
+                      setStatus(null);
+                      handleResumeProcess(id);
+                    }}
                   >
                     Resume
                   </Button>
@@ -217,7 +191,10 @@ export default function FeedPage({ data }) {
                         STATUSES.stopped.label,
                       ].includes(status.label)
                     }
-                    onClick={() => handleEvent(handleSuspendProcess)}
+                    onClick={() => {
+                      setStatus(null);
+                      handleSuspendProcess(id);
+                    }}
                   >
                     Suspend
                   </Button>
@@ -229,14 +206,13 @@ export default function FeedPage({ data }) {
                       !status ||
                       [STATUSES.terminated.label].includes(status.label)
                     }
-                    onClick={() => handleEvent(handleKillProcess)}
+                    onClick={() => {
+                      setStatus(null);
+                      handleKillProcess(id);
+                    }}
                   >
                     Terminate
                   </Button>
-                  <FormControl>
-                    <FormLabel>Inference</FormLabel>
-                    <Switch />
-                  </FormControl>
                 </Stack>
               </Box>
             </VStack>

@@ -1,6 +1,7 @@
 import { socket } from "../socket";
 
-export const handleStartProcess = (id) => socket.emit("start_process", { id });
+export const handleStartProcess = (id, src) =>
+  socket.emit("start_process", { id, src });
 export const handleResumeProcess = (id) =>
   socket.emit("resume_process", { id });
 
