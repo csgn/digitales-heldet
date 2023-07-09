@@ -1,14 +1,12 @@
 import cv2
 import threading
 import time
+import base64
 
 class SourceCapture:
-    def __init__(self, source_path, socket):
+    def __init__(self, source_path):
         self.thread = None
-        self.current_frame  = None
-        self.last_access = None
         self.is_running: bool = False
-        self.socket = socket
         self.camera = cv2.VideoCapture(source_path)
 
         if not self.camera.isOpened():
@@ -20,27 +18,24 @@ class SourceCapture:
     def __del__(self):
         self.camera.release()
 
-    def start(self):
+    def start(self, sio):
         if self.thread is None:
-            self.thread = threading.Thread(target=self._capture)
+            self.thread = threading.Thread(target=self._capture, args=(sio,))
             self.thread.start()
-
-    def get_frame(self):
-        self.last_access = time.time()
-        return self.current_frame
 
     def stop(self):
         self.is_running = False
         self.thread.join()
         self.thread = None
 
-    def _capture(self):
+    def _capture(self, sio):
         self.is_running = True
-        self.last_access = time.time()
         while self.is_running:
             time.sleep(1)
             ret, frame = self.camera.read()
-            self.current_frame = frame
+            _, encoded_frame = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+            payload = base64.b64encode(encoded_frame).decode('utf-8')
+            sio.emit("video_feed", {"frame": payload})
         print("Reading thread stopped")
         self.thread = None
         self.is_running = False

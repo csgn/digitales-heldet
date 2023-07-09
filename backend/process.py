@@ -4,13 +4,11 @@ import psutil
 import logging
 
 
-from random_open_port import random_port
-
 def start(src):
     return subprocess.Popen(["python",
                              "inference/start.py",
-                             '--port',
-                             str(random_port()),
+                             '--host',
+                             'http://localhost:5000',
                              '--source',
                              src]).pid
 

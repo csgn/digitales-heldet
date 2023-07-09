@@ -23,6 +23,7 @@ logging.basicConfig(level=logging.INFO)
 @socketio.on('start_process')
 def handle_start_process(data):
     id_ = data.get("id")
+    name = data.get("name")
     src = data.get("src")
     pid = r.get(id_)
 
@@ -110,13 +111,17 @@ def handle_healthcheck(data):
     }
     socketio.emit("healthcheck", payload)
 
-@socketio.on('feed')
-def handle_feed(data):
-    socketio.emit("video_feed", data)
-
 @socketio.on('connect')
 def connect():
-    socketio.emit("message", {"status": "running"})
+    print("connected")
+
+@socketio.on('disconnect')
+def disconnect():
+    print("disconnected")
+
+@socketio.on("video_feed")
+def video_feed(data):
+    socketio.emit("video_feed", {"frame": data.get("frame", b'')})
 
 @app.route('/')
 def index():

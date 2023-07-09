@@ -31,7 +31,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/router";
 import toast from "@/lib/toast";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { socket } from "@/lib/socket";
 import { FiArrowLeft } from "react-icons/fi";
 import { RiIndeterminateCircleLine } from "react-icons/ri";
@@ -64,6 +64,7 @@ const STATUSES = {
 export default function FeedPage({ data }) {
   const router = useRouter();
   const [status, setStatus] = useState(null);
+  const imgRef = useRef(null);
 
   const { id, name, src } = data;
 
@@ -72,15 +73,24 @@ export default function FeedPage({ data }) {
       setStatus(STATUSES[data.status]);
     }
 
+    function listenVideoFeed(data) {
+      const frame = "data:image/jpeg;base64," + data.frame;
+      console.log(frame);
+
+      //imgRef.current.src = frame;
+    }
+
     handleHealthcheck(id);
 
     const h = setInterval(() => {
       handleHealthcheck(id);
     }, 20000);
 
+    socket.on("video_feed", listenVideoFeed);
     socket.on("healthcheck", listenHealthCheck);
 
     return () => {
+      socket.off("video_feed", listenVideoFeed);
       socket.off("healthcheck", listenHealthCheck);
       clearInterval(h);
     };
@@ -106,7 +116,11 @@ export default function FeedPage({ data }) {
         <Divider />
         <HStack alignItems="flex-start" gap={4}>
           <Box position={"relative"}>
-            <Skeleton width={800} height={600} />
+            {status ? (
+              <Skeleton width={800} height={600} />
+            ) : (
+              <Skeleton width={800} height={600} />
+            )}
           </Box>
           <Box width={"100%"}>
             <VStack>

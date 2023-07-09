@@ -1,36 +1,35 @@
+import sys
 import argparse
-import uuid
-
-from flask import Flask, render_template
-from flask_socketio import SocketIO
+import socketio
 
 from capture import SourceCapture
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = str(uuid.uuid4())
-
-socketio = SocketIO(app,
-                    async_mode='threading',
-                    cors_allowed_origins="*")
+sio = socketio.Client()
 src_capture = None
 
-@socketio.on('connect')
-def connect():
-    socketio.emit("message", {"status": "connect"})
+@sio.on('connect')
+def on_connect():
+    print("connected")
 
-@socketio.on('disconnect')
-def disconnect():
+@sio.on('disconnect')
+def on_disconnect():
     del src_capture
-    socketio.emit("message", {"status": "disconnect"})
+    print("disconnected")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                     prog='Inference Subprocess')
-    parser.add_argument('-p', '--port', required=True, type=int)
-    parser.add_argument('-s', '--source', required=True, type=str)
+    parser.add_argument('-H', '--host', required=True, type=str)
+    parser.add_argument('-S', '--source', required=True, type=str)
     args = parser.parse_args()
 
-    src_capture = SourceCapture(args.source)
-    src_capture.start()
-    socketio.run(app, port=args.port)
+    try:
+        src_capture = SourceCapture(args.source)
+        src_capture.start(sio)
+
+        sio.connect(args.host)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
